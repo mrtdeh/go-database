@@ -1,0 +1,92 @@
+package database
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+)
+
+const (
+	DBName = "ti_database"
+)
+
+var (
+	Mysql *sql.DB
+)
+
+func newConnection(cnf *Config) error {
+	// return back if none empty
+	if Mysql != nil {
+		return nil
+	}
+
+	var err error
+	ctxBG := context.Background()
+
+	// config context timeout
+	ctxConnTimeout, cancel := context.WithTimeout(ctxBG, 3*time.Second)
+	defer cancel()
+	// load TLS config
+	tlsConfig := cnf.TLSConfig
+
+	// config connection paramaters
+	dbConfig := &mysql.Config{
+		User:                 cnf.User,
+		Passwd:               cnf.Pass,
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%d", cnf.Host, cnf.Port),
+		DBName:               "",
+		Timeout:              3 * time.Second,
+		AllowNativePasswords: true,
+	}
+
+	// add tls config if enabled
+	if tlsConfig != nil {
+		mysql.RegisterTLSConfig("siem", tlsConfig)
+		dbConfig.TLSConfig = "siem"
+	}
+
+	// create a temp connection to test and create databse
+	tmpConn, err := sql.Open("mysql", dbConfig.FormatDSN())
+	if err != nil {
+		return err
+	}
+	defer tmpConn.Close()
+
+	// ping to mysql server with custom context
+	err = tmpConn.PingContext(ctxConnTimeout)
+	if err != nil {
+		return err
+	}
+	// create database table if not exist
+	_, err = tmpConn.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, DBName))
+	if err != nil {
+		return errors.New("error creating database: " + err.Error())
+	}
+	// test to use database
+	_, err = tmpConn.Exec(fmt.Sprintf(`USE %s;`, DBName))
+	if err != nil {
+		return errors.New("error selecting database: " + err.Error())
+	}
+
+	// set database name
+	dbConfig.DBName = DBName
+	// real connect to mysql
+	Mysql, err = sql.Open("mysql", dbConfig.FormatDSN())
+	if err != nil {
+		return err
+	}
+
+	log.Println("successfuly connect ot mariadb")
+
+	// Mysql.SetMaxOpenConns(10)
+	// Mysql.SetMaxIdleConns(10)
+
+	return nil
+}
