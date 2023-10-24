@@ -13,12 +13,17 @@ import (
 )
 
 var (
-	Mysql *sql.DB
+	// Mysql  *sql.DB
+	client *DBClient
 )
+
+type DBClient struct {
+	conn *sql.DB
+}
 
 func newConnection(cnf *Config) error {
 	// return back if none empty
-	if Mysql != nil {
+	if client != nil {
 		return nil
 	}
 
@@ -74,10 +79,11 @@ func newConnection(cnf *Config) error {
 	// set database name
 	dbConfig.DBName = cnf.DBName
 	// real connect to mysql
-	Mysql, err = sql.Open("mysql", dbConfig.FormatDSN())
+	conn, err := sql.Open("mysql", dbConfig.FormatDSN())
 	if err != nil {
 		return err
 	}
+	client = &DBClient{conn}
 
 	log.Println("successfuly connect ot mariadb")
 

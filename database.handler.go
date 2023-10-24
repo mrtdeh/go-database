@@ -112,14 +112,14 @@ func GetOrAll(table string, id any, idField string) *RowsResult {
 		if strId, ok := id.(string); ok {
 			id = "'" + strId + "'"
 		}
-		res, err = Mysql.Query(fmt.Sprintf("select * from %s where %s=%v;", table, idField, id))
+		res, err = client.conn.Query(fmt.Sprintf("select * from %s where %s=%v;", table, idField, id))
 		if err != nil {
 			return &RowsResult{nil, err}
 		}
 
 	} else {
 
-		res, err = Mysql.Query(fmt.Sprintf("select * from %s;", table))
+		res, err = client.conn.Query(fmt.Sprintf("select * from %s;", table))
 		if err != nil {
 			return &RowsResult{nil, err}
 		}
@@ -268,7 +268,7 @@ func (s *Statement) Do() *RowsResult {
 		return &RowsResult{nil, s.err}
 	}
 
-	res, err := Mysql.Query(query)
+	res, err := client.conn.Query(query)
 	if err != nil {
 		return &RowsResult{nil, err}
 	}
@@ -313,7 +313,7 @@ func Exist(table string, id any, idField string) bool {
 
 	// Execute the query
 	var count int
-	err := Mysql.QueryRow(statement, id).Scan(&count)
+	err := client.conn.QueryRow(statement, id).Scan(&count)
 	if err != nil {
 		panic(err)
 	}
@@ -354,7 +354,7 @@ func SafeUpsert(table string, obj interface{}, id any, idField string) (any, err
 		query, values = insertStatement(opt)
 	}
 
-	res, err := Mysql.Exec(query, values...)
+	res, err := client.conn.Exec(query, values...)
 	if err != nil {
 		// Rollback the transaction if an error occurs
 		return nil, err
@@ -408,7 +408,7 @@ func Create(table string, obj interface{}, action InsertAction) (sql.Result, err
 		InsertAction: action,
 	})
 
-	res, err := Mysql.Exec(stmt, values...)
+	res, err := client.conn.Exec(stmt, values...)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +429,7 @@ func Update(table string, obj interface{}, id interface{}, idField string) error
 		IdField:   idField,
 	})
 
-	_, err := Mysql.Exec(stmt, values...)
+	_, err := client.conn.Exec(stmt, values...)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -456,7 +456,7 @@ func CreateMulti(table string, rows []interface{}, action InsertAction) error {
 
 	sql = sql[:len(sql)-1]
 
-	if tx, err := Mysql.Begin(); err == nil {
+	if tx, err := client.conn.Begin(); err == nil {
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -497,7 +497,7 @@ func UpsertMulti(table string, rows []interface{}, updateKeys []string) error {
 
 	fetchKVs := prepareFetchKVsFunc([]string{"id"}, true)
 
-	if tx, err := Mysql.Begin(); err == nil {
+	if tx, err := client.conn.Begin(); err == nil {
 
 		defer func() {
 			if err := recover(); err != nil {
@@ -556,7 +556,7 @@ func UpsertMulti(table string, rows []interface{}, updateKeys []string) error {
 
 func Delete(table string, id any, idField string) error {
 	stmt := fmt.Sprintf("DELETE FROM %s WHERE %s=?;", table, idField)
-	_, err := Mysql.Exec(stmt, id)
+	_, err := client.conn.Exec(stmt, id)
 	if err != nil {
 		return err
 	}

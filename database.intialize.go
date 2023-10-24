@@ -32,7 +32,7 @@ func Init(cnf *Config) error {
 	}
 
 	if cnf.Migrator != nil {
-		return cnf.Migrator(Mysql)
+		return cnf.Migrator(client.conn)
 	}
 
 	return nil
