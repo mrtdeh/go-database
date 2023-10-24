@@ -12,10 +12,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-const (
-	DBName = "ti_database"
-)
-
 var (
 	Mysql *sql.DB
 )
@@ -65,18 +61,18 @@ func newConnection(cnf *Config) error {
 		return err
 	}
 	// create database table if not exist
-	_, err = tmpConn.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, DBName))
+	_, err = tmpConn.Exec(fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, cnf.DBName))
 	if err != nil {
 		return errors.New("error creating database: " + err.Error())
 	}
 	// test to use database
-	_, err = tmpConn.Exec(fmt.Sprintf(`USE %s;`, DBName))
+	_, err = tmpConn.Exec(fmt.Sprintf(`USE %s;`, cnf.DBName))
 	if err != nil {
 		return errors.New("error selecting database: " + err.Error())
 	}
 
 	// set database name
-	dbConfig.DBName = DBName
+	dbConfig.DBName = cnf.DBName
 	// real connect to mysql
 	Mysql, err = sql.Open("mysql", dbConfig.FormatDSN())
 	if err != nil {
