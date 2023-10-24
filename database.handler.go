@@ -17,8 +17,6 @@ const (
 	InserActionNone    = 0
 	InserActionIgnore  = 1
 	InserActionReplace = 2
-
-	DB_TAG = "db"
 )
 
 var (
@@ -210,7 +208,7 @@ func (s *Statement) LikeIt(a interface{}) *Statement {
 
 		for i := 0; i < c.NumField(); i++ {
 			f := c.Field(i)
-			dbTag := f.Tag.Get(DB_TAG)
+			dbTag := f.Tag.Get(client.cnf.IdentifierTag)
 			if dbTag != "" {
 				value := values.Field(i).Interface()
 				sf = append(sf, likeBuilder(dbTag, value))

@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	// Mysql  *sql.DB
 	client *DBClient
 )
 
 type DBClient struct {
 	conn *sql.DB
+	cnf  *Config
 }
 
 func newConnection(cnf *Config) error {
@@ -83,7 +83,7 @@ func newConnection(cnf *Config) error {
 	if err != nil {
 		return err
 	}
-	client = &DBClient{conn}
+	client = &DBClient{conn, cnf}
 
 	log.Println("successfuly connect ot mariadb")
 

@@ -7,13 +7,14 @@ import (
 )
 
 type Config struct {
-	Host      string
-	Port      int
-	User      string
-	Pass      string
-	DBName    string
-	Migrator  func(conn *sql.DB) error
-	TLSConfig *tls.Config
+	Host          string
+	Port          int
+	User          string
+	Pass          string
+	DBName        string
+	Migrator      func(conn *sql.DB) error
+	TLSConfig     *tls.Config
+	IdentifierTag string
 }
 
 func Init(cnf *Config) error {

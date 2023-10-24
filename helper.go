@@ -24,7 +24,7 @@ func prepareFetchKVsFunc(ignores []string, ignoreEmpties bool) func(any) Rows {
 				continue
 			}
 
-			j := f.Tag.Get(DB_TAG)
+			j := f.Tag.Get(client.cnf.IdentifierTag)
 			if j == "" {
 				continue
 			}
