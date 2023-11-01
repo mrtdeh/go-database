@@ -130,6 +130,10 @@ func Query(query string, args ...any) (*sql.Rows, error) {
 	return client.conn.Query(query, args)
 }
 
+func QueryRow(query string, args ...any) *sql.Row {
+	return client.conn.QueryRow(query, args)
+}
+
 //=========================== Search Statement =================================
 
 func SearchIn(tbl string) *Statement {
