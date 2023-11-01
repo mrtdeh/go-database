@@ -127,15 +127,15 @@ func GetOrAll(table string, id any, idField string) *RowsResult {
 }
 
 func Query(query string, args ...any) (*sql.Rows, error) {
-	return client.conn.Query(query, args)
+	return client.conn.Query(query, args...)
 }
 
 func QueryRow(query string, args ...any) *sql.Row {
-	return client.conn.QueryRow(query, args)
+	return client.conn.QueryRow(query, args...)
 }
 
 func Exec(query string, args ...any) (sql.Result, error) {
-	return client.conn.Exec(query, args)
+	return client.conn.Exec(query, args...)
 }
 
 //=========================== Search Statement =================================
