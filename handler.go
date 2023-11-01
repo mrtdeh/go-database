@@ -134,6 +134,10 @@ func QueryRow(query string, args ...any) *sql.Row {
 	return client.conn.QueryRow(query, args)
 }
 
+func Exec(query string, args ...any) (sql.Result, error) {
+	return client.conn.Exec(query, args)
+}
+
 //=========================== Search Statement =================================
 
 func SearchIn(tbl string) *Statement {
