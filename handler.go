@@ -389,8 +389,9 @@ func Upsert(table string, obj interface{}, id interface{}, idField string) error
 		log.Fatal("Object is not a struct")
 		return errors.New("Object is not a struct")
 	}
+	idref := reflect.ValueOf(id)
 
-	if id != nil {
+	if id != nil && !idref.IsZero() {
 		err := Update(table, obj, id, idField)
 		if err != nil {
 			return err
