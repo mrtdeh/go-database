@@ -126,6 +126,10 @@ func GetOrAll(table string, id any, idField string) *RowsResult {
 	return &RowsResult{res, nil}
 }
 
+func Query(query string, args ...any) (*sql.Rows, error) {
+	return client.conn.Query(query, args)
+}
+
 //=========================== Search Statement =================================
 
 func SearchIn(tbl string) *Statement {
