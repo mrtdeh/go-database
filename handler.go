@@ -126,6 +126,23 @@ func GetOrAll(table string, id any, idField string) *RowsResult {
 	return &RowsResult{res, nil}
 }
 
+func GetById(table string, id any, idField string) *RowsResult {
+	var res *sql.Rows
+	var err error
+
+	if id != nil && !reflect.ValueOf(id).IsZero() {
+		if strId, ok := id.(string); ok {
+			id = "'" + strId + "'"
+		}
+		res, err = client.conn.Query(fmt.Sprintf("select * from %s where %s=%v;", table, idField, id))
+		if err != nil {
+			return &RowsResult{nil, err}
+		}
+	}
+
+	return &RowsResult{res, nil}
+}
+
 func Query(query string, args ...any) (*sql.Rows, error) {
 	return client.conn.Query(query, args...)
 }
