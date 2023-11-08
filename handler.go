@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -321,6 +322,15 @@ func (r *RowsResult) Scan(record interface{}) error {
 	recordElem := recordValue.Elem()
 	var err error
 	switch recordElem.Kind() {
+	case reflect.Map:
+		res := scanToMap(rows)
+		if len(res) > 0 {
+			jsonData, err := json.Marshal(res[0])
+			if err != nil {
+				return err
+			}
+			err = json.Unmarshal(jsonData, record)
+		}
 	case reflect.Struct:
 		err = scan.Row(record, rows)
 	case reflect.Array, reflect.Slice:
@@ -331,6 +341,28 @@ func (r *RowsResult) Scan(record interface{}) error {
 	}
 
 	return nil
+}
+
+func scanToMap(list *sql.Rows) (rows []map[string]interface{}) {
+	fields, _ := list.Columns()
+	for list.Next() {
+		scans := make([]interface{}, len(fields))
+		row := make(map[string]interface{})
+
+		for i := range scans {
+			scans[i] = &scans[i]
+		}
+		list.Scan(scans...)
+		for i, v := range scans {
+			var value = ""
+			if v != nil {
+				value = fmt.Sprintf("%s", v)
+			}
+			row[fields[i]] = value
+		}
+		rows = append(rows, row)
+	}
+	return
 }
 
 // ================================================================================
