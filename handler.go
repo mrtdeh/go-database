@@ -330,6 +330,9 @@ func (r *RowsResult) Scan(record interface{}) error {
 				return err
 			}
 			err = json.Unmarshal(jsonData, record)
+			if err != nil {
+				return err
+			}
 		}
 	case reflect.Struct:
 		err = scan.Row(record, rows)
