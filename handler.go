@@ -460,6 +460,9 @@ func Upsert(table string, obj interface{}, id interface{}, idField string) error
 }
 
 func LastInsetID() (int64, error) {
+	defer func() {
+		lastCreateResult = nil
+	}()
 	if lastCreateResult != nil {
 		return lastCreateResult.LastInsertId()
 	}
