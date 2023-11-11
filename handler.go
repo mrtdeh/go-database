@@ -21,7 +21,8 @@ const (
 )
 
 var (
-	Build b
+	Build            b
+	lastCreateResult sql.Result
 )
 
 type (
@@ -458,6 +459,13 @@ func Upsert(table string, obj interface{}, id interface{}, idField string) error
 	return nil
 }
 
+func LastInsetID() (int64, error) {
+	if lastCreateResult != nil {
+		return lastCreateResult.LastInsertId()
+	}
+	return 0, nil
+}
+
 func Create(table string, obj interface{}, action InsertAction) (sql.Result, error) {
 	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Struct {
@@ -475,6 +483,7 @@ func Create(table string, obj interface{}, action InsertAction) (sql.Result, err
 	if err != nil {
 		return nil, err
 	}
+	lastCreateResult = res
 	return res, nil
 }
 
