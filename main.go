@@ -15,6 +15,7 @@ type Config struct {
 	Migrator      func(conn *sql.DB) error
 	TLSConfig     *tls.Config
 	IdentifierTag string
+	OnError       ErrorFn
 }
 
 func Init(cnf *Config) error {

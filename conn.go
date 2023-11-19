@@ -21,11 +21,29 @@ type DBClient struct {
 	cnf  *Config
 }
 
+type ErrorFn func(err error)
+
+var handleError ErrorFn
+var lastErr string
+
+func genHandleError(inFn ErrorFn) ErrorFn {
+	return func(err error) {
+		if inFn != nil {
+			if err.Error() != lastErr {
+				inFn(err)
+				lastErr = err.Error()
+			}
+		}
+	}
+}
+
 func newConnection(cnf *Config) error {
 	// return back if none empty
 	if client != nil {
 		return nil
 	}
+
+	handleError = genHandleError(cnf.OnError)
 
 	var err error
 	ctxBG := context.Background()
@@ -85,10 +103,20 @@ func newConnection(cnf *Config) error {
 	}
 	client = &DBClient{conn, cnf}
 
+	go client.pingHandler(ctxConnTimeout, time.Second*5)
+
 	log.Println("successfuly connect ot mariadb")
-
-	// Mysql.SetMaxOpenConns(10)
-	// Mysql.SetMaxIdleConns(10)
-
 	return nil
+}
+
+func (c *DBClient) pingHandler(ctx context.Context, dur time.Duration) {
+	for {
+		err := c.conn.PingContext(ctx)
+		if err != nil {
+			handleError(err)
+			log.Println("ping err : ", err.Error())
+		}
+
+		time.Sleep(dur)
+	}
 }
