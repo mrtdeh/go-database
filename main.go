@@ -38,6 +38,9 @@ func genHandleError(inFn ErrorFn) ErrorFn {
 			if lastErr != nil {
 				e2 = lastErr.Error()
 			}
+			if e1 == context.DeadlineExceeded.Error() {
+				return
+			}
 			if e1 != e2 {
 				if err != nil {
 					inFn(err)
