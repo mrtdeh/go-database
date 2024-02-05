@@ -289,6 +289,10 @@ func (s *Statement) Do() *RowsResult {
 	var conds, where string
 	if len(s.conds) > 0 {
 		where = "WHERE"
+		first := strings.ToLower(s.conds[0])
+		if first == "and" || first == "or" {
+			s.conds = s.conds[1:]
+		}
 		conds = strings.Join(s.conds, " ")
 	}
 
