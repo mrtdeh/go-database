@@ -320,7 +320,7 @@ func (r *RowsResult) Scan(record interface{}) error {
 	}
 
 	if rows == nil {
-		return fmt.Errorf("rows is empty")
+		return nil
 	}
 	defer rows.Close()
 
