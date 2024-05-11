@@ -11,7 +11,6 @@ import (
 
 	"github.com/blockloop/scan/v2"
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -97,9 +96,7 @@ func (t *Transaction) EndIf() {
 }
 
 func (t *Transaction) Append(staements ...string) {
-	for _, s := range staements {
-		t.statements = append(t.statements, s)
-	}
+	t.statements = append(t.statements, staements...)
 }
 
 // =================================================================================
@@ -280,7 +277,7 @@ func (s *Statement) LikeIt(a interface{}) *Statement {
 		}
 	}
 
-	query := fmt.Sprintf("%s", strings.Join(sf, " AND "))
+	query := strings.Join(sf, " AND ")
 
 	if len(sf) == 0 {
 		s.rollback()
@@ -440,9 +437,8 @@ func SafeUpsert(table string, obj interface{}, id any, idField string) (any, err
 
 	var query string
 	var values []interface{}
-	var existed bool
 
-	existed = Exist(table, id, idField)
+	existed := Exist(table, id, idField)
 
 	if existed {
 		query, values = updateStatement(opt)
@@ -594,7 +590,7 @@ func CreateMulti(table string, rows []interface{}, action InsertAction) error {
 		return nil
 	} else {
 		fmt.Println("Unable to open a connection to the database:", err.Error())
-		return fmt.Errorf("Unable to open a connection to the database:%s", err.Error())
+		return fmt.Errorf("unable to open a connection to the database:%s", err.Error())
 	}
 }
 
@@ -658,7 +654,7 @@ func UpsertMulti(table string, rows []interface{}, updateKeys []string) error {
 		return nil
 	} else {
 		fmt.Println("Unable to open a connection to the database:", err.Error())
-		return fmt.Errorf("Unable to open a connection to the database:%s", err.Error())
+		return fmt.Errorf("unable to open a connection to the database:%s", err.Error())
 	}
 }
 

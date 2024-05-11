@@ -46,7 +46,7 @@ func prepareFetchKVsFunc(ignores []string, ignoreEmpties bool) func(any) Rows {
 
 func strContains(str string, arrStr []string) bool {
 	for _, s := range arrStr {
-		if strings.ToLower(s) == strings.ToLower(str) {
+		if strings.EqualFold(s, str) {
 			return true
 		}
 	}
@@ -119,27 +119,21 @@ func escape(source string) string {
 		case '\r':
 			flag = true
 			escape = '\r'
-			break
 		case '\n':
 			flag = true
 			escape = '\n'
-			break
 		case '\\':
 			flag = true
 			escape = '\\'
-			break
 		case '\'':
 			flag = true
 			escape = '\''
-			break
 		case '"':
 			flag = true
 			escape = '"'
-			break
 		case '\032':
 			flag = true
 			escape = 'Z'
-			break
 		default:
 		}
 		if flag {
