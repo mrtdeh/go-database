@@ -128,6 +128,35 @@ func GetOrAll(table string, id any, idField string) *RowsResult {
 	return &RowsResult{res, nil}
 }
 
+func Count(table string, id any, idField string) (int64, error) {
+	var res *sql.Rows
+	var err error
+
+	if id != nil && !reflect.ValueOf(id).IsZero() {
+		if strId, ok := id.(string); ok {
+			id = "'" + strId + "'"
+		}
+		res, err = client.conn.Query(fmt.Sprintf("select COUNT(*) from %s where %s=%v;", table, idField, id))
+		if err != nil {
+			return 0, err
+		}
+
+	} else {
+
+		res, err = client.conn.Query(fmt.Sprintf("select COUNT(*) from %s;", table))
+		if err != nil {
+			return 0, err
+		}
+	}
+	var c int64
+	err = res.Scan(c)
+	if err != nil {
+		return 0, err
+	}
+
+	return c, nil
+}
+
 func GetById(table string, id any, idField string) *RowsResult {
 	var res *sql.Rows
 	var err error
