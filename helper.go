@@ -12,7 +12,9 @@ func prepareFetchKVsFunc(ignores []string, ignoreEmpties bool) func(any) Rows {
 		values := reflect.ValueOf(a)
 
 		for i := 0; i < c.NumField(); i++ {
-
+			if !values.Field(i).CanInterface() {
+				continue
+			}
 			value := values.Field(i).Interface()
 			f := c.FieldByIndex([]int{i})
 
