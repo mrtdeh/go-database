@@ -65,10 +65,13 @@ func isEmpty(myVar interface{}) bool {
 func insertStatement(qo QueryOption) (string, []interface{}) {
 
 	tblname := qo.TableName
-	data := qo.Record
+	data := qo.Model.Struct
 	action := qo.InsertAction
+	ignoreEmpty := !qo.Model.AllowEmpty
+	excludes := qo.Model.ExcludedFields
+	excludes = append(excludes, []string{"id"}...)
 
-	d := prepareFetchKVsFunc([]string{"id", "info_hash"}, true)(data)
+	d := prepareFetchKVsFunc(excludes, ignoreEmpty)(data)
 	vals := strings.Repeat("?, ", len(d.Vals)-1) + "?"
 	keys := strings.Join(d.Keys, ",")
 
@@ -93,11 +96,14 @@ func insertStatement(qo QueryOption) (string, []interface{}) {
 func updateStatement(qo QueryOption) (string, []interface{}) {
 
 	tblname := qo.TableName
-	data := qo.Record
+	data := qo.Model.Struct
 	id := qo.Id
 	idField := qo.IdField
+	ignoreEmpty := !qo.Model.AllowEmpty
+	excludes := qo.Model.ExcludedFields
+	excludes = append(excludes, []string{"id"}...)
 
-	d := prepareFetchKVsFunc([]string{"id", "info_hash"}, true)(data)
+	d := prepareFetchKVsFunc(excludes, ignoreEmpty)(data)
 
 	setClause := strings.Join(d.Keys, "=?,") + "=?"
 

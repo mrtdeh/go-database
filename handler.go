@@ -30,11 +30,16 @@ type (
 
 	QueryOption struct {
 		TableName    string
-		Record       interface{}
+		Model        Model
 		Id           interface{}
 		IdField      string
 		InsertAction InsertAction
-		// WithValues   bool
+	}
+
+	Model struct {
+		Struct         interface{}
+		ExcludedFields []string
+		AllowEmpty     bool
 	}
 
 	Rows struct {
@@ -419,8 +424,8 @@ func Exist(table string, id any, idField string) bool {
 	}
 }
 
-func SafeUpsert(table string, obj interface{}, id any, idField string) (any, error) {
-	v := reflect.ValueOf(obj)
+func SafeUpsert(table string, model Model, id any, idField string) (any, error) {
+	v := reflect.ValueOf(model.Struct)
 	if v.Kind() != reflect.Struct {
 		log.Fatal("Object is not a struct")
 		return nil, errors.New("Object is not a struct")
@@ -428,11 +433,10 @@ func SafeUpsert(table string, obj interface{}, id any, idField string) (any, err
 
 	opt := QueryOption{
 		TableName:    table,
-		Record:       obj,
+		Model:        model,
 		Id:           id,
 		IdField:      idField,
 		InsertAction: InserActionNone,
-		// WithValues:   false,
 	}
 
 	var query string
@@ -465,8 +469,8 @@ func SafeUpsert(table string, obj interface{}, id any, idField string) (any, err
 	return nil, nil
 }
 
-func Upsert(table string, obj interface{}, id interface{}, idField string) error {
-	v := reflect.ValueOf(obj)
+func Upsert(table string, model Model, id interface{}, idField string) error {
+	v := reflect.ValueOf(model.Struct)
 	if v.Kind() != reflect.Struct {
 		log.Fatal("Object is not a struct")
 		return errors.New("Object is not a struct")
@@ -474,12 +478,12 @@ func Upsert(table string, obj interface{}, id interface{}, idField string) error
 	idref := reflect.ValueOf(id)
 
 	if id != nil && !idref.IsZero() {
-		err := Update(table, obj, id, idField)
+		err := Update(table, model, id, idField)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err := Create(table, obj, InserActionNone)
+		_, err := Create(table, model, InserActionNone)
 		if err != nil {
 			return err
 		}
@@ -498,8 +502,8 @@ func LastInsetID() (int64, error) {
 	return 0, nil
 }
 
-func Create(table string, obj interface{}, action InsertAction) (sql.Result, error) {
-	v := reflect.ValueOf(obj)
+func Create(table string, model Model, action InsertAction) (sql.Result, error) {
+	v := reflect.ValueOf(model.Struct)
 	if v.Kind() != reflect.Struct {
 		log.Fatal("Object is not a struct")
 		return nil, errors.New("Object is not a struct")
@@ -507,7 +511,7 @@ func Create(table string, obj interface{}, action InsertAction) (sql.Result, err
 
 	stmt, values := insertStatement(QueryOption{
 		TableName:    table,
-		Record:       obj,
+		Model:        model,
 		InsertAction: action,
 	})
 
@@ -519,8 +523,8 @@ func Create(table string, obj interface{}, action InsertAction) (sql.Result, err
 	return res, nil
 }
 
-func Update(table string, obj interface{}, id interface{}, idField string) error {
-	v := reflect.ValueOf(obj)
+func Update(table string, model Model, id interface{}, idField string) error {
+	v := reflect.ValueOf(model.Struct)
 	if v.Kind() != reflect.Struct {
 		log.Fatal("Object is not a struct")
 		return errors.New("Object is not a struct")
@@ -528,7 +532,7 @@ func Update(table string, obj interface{}, id interface{}, idField string) error
 
 	stmt, values := updateStatement(QueryOption{
 		TableName: table,
-		Record:    obj,
+		Model:     model,
 		Id:        id,
 		IdField:   idField,
 	})
@@ -542,120 +546,156 @@ func Update(table string, obj interface{}, id interface{}, idField string) error
 	return nil
 }
 
-func CreateMulti(table string, rows []interface{}, action InsertAction) error {
-	var values []interface{}
-	fetchKVs := prepareFetchKVsFunc([]string{"id"}, false)
+func CreateMulti(table string, model Model, action InsertAction) error {
 
-	keys := fetchKVs(rows[0]).Keys
+	t := reflect.TypeOf(model.Struct).Kind()
+	if t != reflect.Array && t != reflect.Slice {
+		return fmt.Errorf("invalid model data: must be array or slice but got %s", t.String())
+	}
+
+	rows := reflect.ValueOf(model.Struct)
+	if rows.Len() == 0 {
+		return fmt.Errorf("no data to insert")
+	}
+
+	ignoreEmpty := !model.AllowEmpty
+	excludes := model.ExcludedFields
+	excludes = append(excludes, "id")
+
+	var values []interface{}
+	fetchKVs := prepareFetchKVsFunc(excludes, ignoreEmpty)
+
+	keys := fetchKVs(rows.Index(0).Interface()).Keys
 	keystr := strings.Join(keys, ",")
-	sql := fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES ", table, keystr)
+	sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES ", table, keystr)
 
 	valCount := len(keys)
-	newRows := int(len(rows))
+	newRows := rows.Len()
 	for i := 0; i < newRows; i++ {
 		sql = sql + "( " + strings.Repeat("?,", valCount-1) + " ? ) ,"
-		vals := fetchKVs(rows[i]).Vals
+		vals := fetchKVs(rows.Index(i).Interface()).Vals
 		values = append(values, vals...)
 	}
 
 	sql = sql[:len(sql)-1]
 
-	if tx, err := client.conn.Begin(); err == nil {
-
-		defer func() {
-			if err := recover(); err != nil {
-				fmt.Println("Failed to create multiple record:", err)
-				tx.Rollback()
-			}
-		}()
-
-		stmtIns, err := tx.Prepare(sql)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-		defer stmtIns.Close()
-
-		_, err = stmtIns.Exec(values...)
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("exec error : %s ", err.Error())
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("commit error : %s ", err.Error())
-		}
-		return nil
-	} else {
-		fmt.Println("Unable to open a connection to the database:", err.Error())
-		return fmt.Errorf("unable to open a connection to the database:%s", err.Error())
+	// set insert action to query
+	switch action {
+	case InserActionIgnore:
+		sql = strings.Replace(sql, "INSERT", "INSERT IGNORE", 1)
+	case InserActionReplace:
+		sql = strings.Replace(sql, "INSERT", "REPLACE", 1)
 	}
+
+	// begin transaction
+	tx, err := client.conn.Begin()
+	if err != nil {
+		fmt.Println("Unable to open a connection to the database:", err.Error())
+		return fmt.Errorf("unable to open a connection to the database: %s", err.Error())
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Failed to create multiple record:", r)
+			tx.Rollback()
+		}
+	}()
+
+	stmtIns, err := tx.Prepare(sql)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmtIns.Close()
+
+	_, err = stmtIns.Exec(values...)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("exec error: %s", err.Error())
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("commit error: %s", err.Error())
+	}
+
+	return nil
 }
 
-func UpsertMulti(table string, rows []interface{}, updateKeys []string) error {
+func UpsertMulti(table string, model Model, updateKeys []string) error {
 	if len(updateKeys) == 0 {
 		return fmt.Errorf("update keys not specified")
 	}
 
-	fetchKVs := prepareFetchKVsFunc([]string{"id"}, true)
+	t := reflect.TypeOf(model.Struct).Kind()
+	if t != reflect.Array && t != reflect.Slice {
+		return fmt.Errorf("invalid model data: must be array or slice but got %s", t.String())
+	}
 
-	if tx, err := client.conn.Begin(); err == nil {
+	rows := reflect.ValueOf(model.Struct)
+	if rows.Len() == 0 {
+		return fmt.Errorf("no data to insert")
+	}
 
-		defer func() {
-			if err := recover(); err != nil {
-				fmt.Println("Failed to create multiple record:", err)
-				tx.Rollback()
-			}
-		}()
+	ignoreEmpty := !model.AllowEmpty
+	excludes := model.ExcludedFields
+	excludes = append(excludes, "id")
 
-		for _, r := range rows {
+	fetchKVs := prepareFetchKVsFunc(excludes, ignoreEmpty)
 
-			f := fetchKVs(r)
-			keys := f.Keys
-			vals := f.Vals
-
-			valstr := strings.Repeat("?,", len(vals))
-			valstr = valstr[:len(valstr)-1]
-
-			keystr := strings.Join(keys, ",")
-
-			sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE ",
-				table, keystr, valstr)
-			for _, f := range updateKeys {
-
-				for i, k := range keys {
-					if k == f && (vals[i] != nil && vals[i] != "") {
-						sql = sql + fmt.Sprintf(" %s = VALUES(%s),", k, k)
-						break
-					}
-				}
-
-			}
-			c := sql[len(sql)-1:]
-			if c == "," {
-				sql = sql[:len(sql)-1]
-			}
-
-			// fmt.Println("sql : ", sql)
-
-			_, err = tx.Exec(sql, vals...)
-			if err != nil {
-				tx.Rollback()
-				return fmt.Errorf("exec error : %s ", err.Error())
-			}
-		}
-		err = tx.Commit()
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("commit error : %s ", err.Error())
-		}
-		return nil
-	} else {
+	tx, err := client.conn.Begin()
+	if err != nil {
 		fmt.Println("Unable to open a connection to the database:", err.Error())
 		return fmt.Errorf("unable to open a connection to the database:%s", err.Error())
 	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("Failed to create multiple record:", err)
+			tx.Rollback()
+		}
+	}()
+
+	for i := 0; i < rows.Len(); i++ {
+		r := rows.Index(i).Interface()
+
+		f := fetchKVs(r)
+		keys := f.Keys
+		vals := f.Vals
+
+		valstr := strings.Repeat("?,", len(vals))
+		valstr = valstr[:len(valstr)-1]
+
+		keystr := strings.Join(keys, ",")
+
+		sql := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE ",
+			table, keystr, valstr)
+		for _, uk := range updateKeys {
+			for i, k := range keys {
+				if k == uk && (vals[i] != nil && vals[i] != "") {
+					sql += fmt.Sprintf("%s = VALUES(%s),", k, k)
+					break
+				}
+			}
+		}
+
+		sql = strings.TrimSuffix(sql, ",")
+
+		_, err = tx.Exec(sql, vals...)
+		if err != nil {
+			tx.Rollback()
+			return fmt.Errorf("exec error : %s ", err.Error())
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("commit error : %s ", err.Error())
+	}
+
+	return nil
 }
 
 func Delete(table string, id any, idField string) error {
