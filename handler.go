@@ -53,9 +53,11 @@ type (
 	}
 
 	Statement struct {
-		table string
-		conds []string
-		err   error
+		table  string
+		conds  []string
+		limit  int
+		offset int
+		err    error
 	}
 
 	Transaction struct {
@@ -316,18 +318,36 @@ func (s *Statement) Or() *Statement {
 	return s
 }
 
+func (s *Statement) Limit(limit int) *Statement {
+	s.limit = limit
+	return s
+}
+
+func (s *Statement) Offset(offset int) *Statement {
+	s.offset = offset
+	return s
+}
+
 func (s *Statement) Do() *RowsResult {
-	var conds, where string
+	var conds, where, limit, offset string
 	if len(s.conds) > 0 {
 		where = "WHERE"
 		first := strings.ToLower(s.conds[0])
 		if first == "and" || first == "or" {
 			s.conds = s.conds[1:]
 		}
-		conds = strings.Join(s.conds, " ")
+		conds = "(" + strings.Join(s.conds, " ") + ")"
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s %s %s", s.table, where, conds)
+	if s.limit != 0 {
+		limit = fmt.Sprintf("LIMIT %d", s.limit)
+	}
+
+	if s.offset != 0 {
+		offset = fmt.Sprintf("OFFSET %d", s.offset)
+	}
+
+	query := fmt.Sprintf("SELECT * FROM %s %s %s %s %s", s.table, where, conds, limit, offset)
 	if s.err != nil {
 		return &RowsResult{nil, s.err}
 	}
